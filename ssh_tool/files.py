@@ -1,15 +1,11 @@
-"""查找要上传到远程主机的本地文件。"""
+"""Utilities for locating local files to upload to remote hosts."""
+
 from os import path, walk
 from typing import List
 
 
 def fetch_local_files(local_file_dir: str) -> List[str]:
-    """
-    生成指定文件或目录下所有文件的完整路径列表。
-
-    :param str local_file_dir: 要通过 SCP 上传到远程主机的本地文件或目录。
-    :returns: List[str]
-    """
+    """Generate a list of file paths under the given local directory."""
     if not local_file_dir:
         raise ValueError("local_file_dir 不能为空。")
 

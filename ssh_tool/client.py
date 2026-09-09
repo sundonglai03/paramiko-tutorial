@@ -1,4 +1,5 @@
-"""对远程主机执行相关任务。"""
+"""Python-friendly client API for SSH remote tasks."""
+
 import argparse
 from typing import List
 
@@ -14,7 +15,7 @@ def _build_client(
     remote_path: str = "/tmp",
     port: int = 22,
 ) -> RemoteClient:
-    """创建远程客户端，并要求显式传入所有必要配置。"""
+    """Create a remote client with all required connection parameters."""
     if not host:
         raise ValueError("host 不能为空。")
     if not user:
@@ -39,7 +40,7 @@ def upload_directory(
     remote_path: str = "/tmp",
     port: int = 22,
 ) -> None:
-    """上传本地文件或目录到远程主机：目录按目录上传，文件按文件上传。"""
+    """Upload a local directory or file to the remote host."""
     client = _build_client(
         host=host,
         user=user,
@@ -64,7 +65,7 @@ def execute_remote_commands(
     remote_path: str = "/tmp",
     port: int = 22,
 ) -> None:
-    """在远程主机上执行一组命令。"""
+    """Run a list of commands on the remote host."""
     client = _build_client(
         host=host,
         user=user,
@@ -81,13 +82,10 @@ def execute_remote_commands(
 
 
 def run(argv: List[str] | None = None):
-    """使用显式参数的 CLI 入口，完全不依赖配置文件。"""
+    """CLI entrypoint compatible with either explicit action style."""
     args = argv if argv is not None else []
-    parser = argparse.ArgumentParser(description="Paramiko remote automation client")
+    parser = argparse.ArgumentParser(description="MCP SSH remote automation client")
 
-    # 兼容两种常见写法：
-    # 1) python main.py execute --host ... --user ... --password ... ls
-    # 2) python main.py --host ... --user ... --password ... execute ls
     parser.add_argument("action", nargs="?", choices=["upload", "execute"], help="要执行的动作")
     parser.add_argument("--host", help="远程主机地址")
     parser.add_argument("--user", help="SSH 用户名")
@@ -99,7 +97,6 @@ def run(argv: List[str] | None = None):
 
     parsed = parser.parse_args(args)
 
-    # 兼容 action 放在最后的位置：python main.py --host ... --user ... execute ls
     if parsed.action is None and parsed.target is not None:
         if parsed.target in {"upload", "execute"}:
             parsed.action = parsed.target

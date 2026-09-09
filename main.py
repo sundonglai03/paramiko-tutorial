@@ -2,7 +2,7 @@
 
 import sys
 
-from paramiko_tutorial import run
+from ssh_tool import run
 
 
 if __name__ == "__main__":

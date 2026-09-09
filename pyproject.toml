@@ -1,7 +1,7 @@
 [project]
-name = "paramiko-tutorial"
+name = "ssh-tool"
 version = "0.1.0"
-description = "Automate tasks on a remote host with Python using Paramiko and SCP."
+description = "SSH remote automation tooling with Python client support."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -10,6 +10,7 @@ dependencies = [
     "paramiko",
     "scp",
     "loguru",
+    "mcp>=2.2.0",
 ]
 
 [dependency-groups]
@@ -24,9 +25,9 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://hackersandslackers.com/automate-ssh-scp-python-paramiko/"
-Repository = "https://github.com/sundonglai03/paramiko-tutorial"
-Issues = "https://github.com/sundonglai03/paramiko-tutorial/issues"
+Homepage = "https://github.com/sundonglai03/ssh-tool"
+Repository = "https://github.com/sundonglai03/ssh-tool"
+Issues = "https://github.com/sundonglai03/ssh-tool/issues"
 
 [tool.pylint."MESSAGES CONTROL"]
 disable = "C0103,C0301,W0703,W0621"

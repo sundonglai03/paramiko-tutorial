@@ -1,4 +1,5 @@
-"""用于处理远程主机连接和操作的客户端。"""
+"""SSH and SCP client implementation."""
+
 import os
 from typing import List
 
@@ -10,7 +11,7 @@ from .log import LOGGER
 
 
 class RemoteClient:
-    """通过 SSH 和 SCP 与远程主机交互的客户端。"""
+    """Connect to a remote host over SSH and upload or execute commands."""
 
     def __init__(
         self,
@@ -32,7 +33,7 @@ class RemoteClient:
 
     @property
     def connection(self) -> SSHClient:
-        """打开到远程主机的 SSH 连接。"""
+        """Open and cache the SSH connection."""
         if self.client is not None:
             return self.client
         try:
@@ -50,15 +51,10 @@ class RemoteClient:
             if self.ssh_key_filepath:
                 connect_kwargs["key_filename"] = self.ssh_key_filepath
 
-            self.client.connect(
-                self.host,
-                **connect_kwargs,
-            )
+            self.client.connect(self.host, **connect_kwargs)
             return self.client
         except AuthenticationException as e:
-            LOGGER.error(
-                f"认证异常：你是否忘记生成 SSH 密钥？{e}"
-            )
+            LOGGER.error(f"认证异常：你是否忘记生成 SSH 密钥？{e}")
             raise
         except Exception as e:
             LOGGER.error(f"连接远程主机时发生未知错误：{e}")
@@ -69,14 +65,11 @@ class RemoteClient:
         if self.scp_client is not None:
             return self.scp_client
         conn = self.connection
-        self.scp_client = SCPClient(
-            conn.get_transport()
-        )
+        self.scp_client = SCPClient(conn.get_transport())
         return self.scp_client
 
     def close(self) -> None:
-        """关闭 SSH 和 SCP 连接。"""
-
+        """Close the SSH and SCP connections."""
         if self.scp_client is not None:
             self.scp_client.close()
             self.scp_client = None
@@ -86,12 +79,7 @@ class RemoteClient:
             self.client = None
 
     def bulk_upload(self, filepaths: str | List[str], recursive: bool | None = None) -> None:
-        """
-        上传一个文件、一个目录，或多个文件列表到远程目录。
-
-        :param str | List[str] filepaths: 单个文件/目录路径，或需要上传的文件列表。
-        :param bool | None recursive: 是否递归上传；如果未显式传入，则由路径类型自动判断。
-        """
+        """Upload one file, one directory, or a list of paths to the remote host."""
         try:
             if isinstance(filepaths, (str, os.PathLike)):
                 local_path = str(filepaths)
@@ -115,16 +103,10 @@ class RemoteClient:
             raise
 
     def download_file(self, filepath: str) -> None:
-        """
-        从远程主机下载文件。
-
-        :param str filepath: 要下载的远程文件路径。
-        """
+        """Download a file from the remote host."""
         try:
             self.scp.get(filepath)
-            LOGGER.info(
-                f"已从 {self.host} 下载 {filepath}"
-            )
+            LOGGER.info(f"已从 {self.host} 下载 {filepath}")
         except SCPException as e:
             LOGGER.error(f"下载文件过程中发生 SCPException：{e}")
             raise
@@ -133,11 +115,7 @@ class RemoteClient:
             raise
 
     def execute_commands(self, commands: List[str]) -> None:
-        """
-        依次执行多条命令。
-
-        :param List[str] commands: 以字符串形式表示的 Unix 命令列表。
-        """
+        """Execute a sequence of commands on the remote host."""
         conn = self.connection
 
         for cmd in commands:
@@ -147,22 +125,11 @@ class RemoteClient:
             error = stderr.read().decode()
 
             if output:
-                LOGGER.info(
-                    f"输入: {cmd}\n"
-                    f"输出: {output}"
-                )
+                LOGGER.info(f"输入: {cmd}\n输出: {output}")
 
             if error:
-                LOGGER.error(
-                    f"输入: {cmd}\n"
-                    f"错误: {error}"
-                )
+                LOGGER.error(f"输入: {cmd}\n错误: {error}")
 
             if exit_status != 0:
-                LOGGER.error(
-                    f"命令执行失败: {cmd}\n"
-                    f"退出状态: {exit_status}"
-                )
-                raise RuntimeError(
-                    f"远程命令失败: {cmd}（退出状态: {exit_status}）"
-                )
+                LOGGER.error(f"命令执行失败: {cmd}\n退出状态: {exit_status}")
+                raise RuntimeError(f"远程命令失败: {cmd}（退出状态: {exit_status}）")
