@@ -1,47 +1,32 @@
-[tool.poetry]
-name = "Paramiko SSH & SCP Tutorial"
+[project]
+name = "paramiko-tutorial"
 version = "0.1.0"
-description = "Automate tasks on a remote host with Python libraries Paramiko & SCP. Write scripts to SSH into hosts, execute tasks, transfer files, etc."
-authors = ["Todd Birchard <toddbirchard@gmail.com>"]
-maintainers = ["Todd Birchard <toddbirchard@gmail.com>"]
-license = "MIT"
+description = "Automate tasks on a remote host with Python using Paramiko and SCP."
 readme = "README.md"
-homepage = "https://hackersandslackers.com/automate-ssh-scp-python-paramiko/"
-repository = "https://github.com/hackersandslackers/paramiko-tutorial/"
-documentation = "https://hackersandslackers.com/automate-ssh-scp-python-paramiko/"
-keywords = [
-    "Paramiko",
-    "SSH",
-    "SCP",
-    "DevOps",
-    "Tutorial"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+
+dependencies = [
+    "paramiko",
+    "scp",
+    "loguru",
 ]
 
-[tool.poetry.dependencies]
-python = "^3.9"
-paramiko = "*"
-scp = "*"
-loguru = "*"
-python-dotenv = "*"
+[dependency-groups]
+dev = [
+    "pytest",
+    "coverage",
+    "mypy",
+    "black",
+    "isort",
+    "flake8",
+    "pylint",
+]
 
-[tool.poetry.dev-dependencies]
-pytest = "*"
-coverage = "*"
-mypy = "*"
-black = "*"
-isort = "*"
-flake8 = "*"
-pylint = "*"
+[project.urls]
+Homepage = "https://hackersandslackers.com/automate-ssh-scp-python-paramiko/"
+Repository = "https://github.com/sundonglai03/paramiko-tutorial"
+Issues = "https://github.com/sundonglai03/paramiko-tutorial/issues"
 
-[build-system]
-requires = ["poetry>=1.1.13"]
-build-backend = "poetry.masonry.api"
-
-[tool.poetry.scripts]
-run = "main:run"
-
-[tool.poetry.urls]
-issues = "https://github.com/hackersandslackers/paramiko-tutorial/issues"
-
-[tool.pylint.'MESSAGES CONTROL']
-disable="C0103,C0301,W0703,W0621"
+[tool.pylint."MESSAGES CONTROL"]
+disable = "C0103,C0301,W0703,W0621"

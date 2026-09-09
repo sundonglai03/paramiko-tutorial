@@ -1,4 +1,4 @@
-"""Custom logger configuration."""
+"""自定义日志配置。"""
 from sys import stdout
 
 from loguru import logger as custom_logger
@@ -6,9 +6,9 @@ from loguru import logger as custom_logger
 
 def log_formatter(record: dict) -> str:
     """
-    Formatter for log records.
+    日志记录格式化器。
 
-    :param dict record: Log object containing log metadata & message.
+    :param dict record: 包含日志元数据和消息的日志对象。
 
     :returns: str
     """
@@ -29,7 +29,7 @@ def log_formatter(record: dict) -> str:
 
 def create_logger() -> custom_logger:
     """
-    Create custom logger.
+    创建自定义日志器。
 
     :returns: custom_logger
     """
