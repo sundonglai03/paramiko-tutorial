@@ -19,12 +19,14 @@ class RemoteClient:
         password: str,
         ssh_key_filepath: str,
         remote_path: str,
+        port: int = 22,
     ):
         self.host = host
         self.user = user
         self.password = password
         self.ssh_key_filepath = ssh_key_filepath
         self.remote_path = remote_path
+        self.port = port
         self.client: SSHClient | None = None
         self.scp_client: SCPClient | None = None
 
@@ -40,6 +42,7 @@ class RemoteClient:
 
             connect_kwargs = {
                 "username": self.user,
+                "port": self.port,
                 "timeout": 10,
             }
             if self.password:

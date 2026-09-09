@@ -7,9 +7,10 @@
 这个项目演示了如何：
 
 - 通过 SSH 连接远程服务器
+- 支持自定义 SSH 端口（默认 22，可按需配置）
 - 执行一组远程 shell 命令
 - 使用 SCP 批量上传本地文件到远程目录
-- 让调用方直接通过参数传入主机、用户、密码、目录等配置
+- 让调用方直接通过参数传入主机、用户、密码、端口、目录等配置
 - 适合做接口调用或二次封装
 - 使用统一日志输出记录执行过程
 
@@ -103,6 +104,7 @@ upload_directory(
     user="root",
     password="your_password",
     remote_path="/tmp/upload",
+    port=2222,
 )
 ```
 
@@ -116,6 +118,7 @@ execute_remote_commands(
     host="192.168.1.10",
     user="root",
     password="your_password",
+    port=2222,
 )
 ```
 
@@ -130,6 +133,7 @@ client = RemoteClient(
     password="your_password",
     ssh_key_filepath="/Users/yourname/.ssh/id_rsa",
     remote_path="/tmp/upload",
+    port=2222,
 )
 
 try:
@@ -145,25 +149,26 @@ finally:
 ### 执行远程命令
 
 ```bash
-python main.py execute --host 192.168.11.231 --user root --password 'R0ck9' ls
-python main.py execute --host 192.168.11.231 --user root --password 'R0ck9' "ls -la"
+python main.py execute --host 192.168.11.231 --user root --password 'R0ck9' --port 2222 ls
+python main.py execute --host 192.168.11.231 --user root --password 'R0ck9' --port 2222 "ls -la"
 ```
 
 说明：
 
 - `execute` 表示执行远程命令
+- `--port` 指定 SSH 端口，默认值为 `22`
 - `ls` 或 `"ls -la"` 是远程要执行的命令
 - 如果密码中带特殊字符，建议用单引号包起来
 
 ### 上传本地目录到远程主机
 
 ```bash
-python main.py upload --host 192.168.11.231 --user root --password 'R0ck9' --remote-path /tmp/upload /Users/yourname/Desktop/myfiles
+python main.py upload --host 192.168.11.231 --user root --password 'R0ck9' --port 2222 --remote-path /tmp/upload /Users/yourname/Desktop/myfiles
 ```
 
 这样可以直接上传任意目录中的文件，而不是必须使用固定的 [files/](files/) 目录。
 
-> 也支持较早的参数顺序：`python main.py --host ... --user ... --password ... execute ls`，但推荐使用上面的写法，语义更清晰。
+> 也支持较早的参数顺序：`python main.py --host ... --user ... --password ... --port 2222 execute ls`，但推荐使用上面的写法，语义更清晰。
 
 ## 安装依赖
 
@@ -182,6 +187,7 @@ pip install .
 ## 设计亮点
 
 - 支持显式参数传入配置
+- 支持自定义 SSH 端口（默认 22）
 - 支持上传任意目录
 - 支持批量命令执行和批量文件上传
 - 适合二次封装为外部接口或 SDK

@@ -12,6 +12,7 @@ def _build_client(
     password: str | None = None,
     ssh_key_filepath: str | None = None,
     remote_path: str = "/tmp",
+    port: int = 22,
 ) -> RemoteClient:
     """创建远程客户端，并要求显式传入所有必要配置。"""
     if not host:
@@ -25,6 +26,7 @@ def _build_client(
         password=password or "",
         ssh_key_filepath=ssh_key_filepath or "",
         remote_path=remote_path,
+        port=port,
     )
 
 
@@ -35,6 +37,7 @@ def upload_directory(
     password: str | None = None,
     ssh_key_filepath: str | None = None,
     remote_path: str = "/tmp",
+    port: int = 22,
 ) -> None:
     """上传本地文件或目录到远程主机：目录按目录上传，文件按文件上传。"""
     client = _build_client(
@@ -43,6 +46,7 @@ def upload_directory(
         password=password,
         ssh_key_filepath=ssh_key_filepath,
         remote_path=remote_path,
+        port=port,
     )
 
     try:
@@ -58,6 +62,7 @@ def execute_remote_commands(
     password: str | None = None,
     ssh_key_filepath: str | None = None,
     remote_path: str = "/tmp",
+    port: int = 22,
 ) -> None:
     """在远程主机上执行一组命令。"""
     client = _build_client(
@@ -66,6 +71,7 @@ def execute_remote_commands(
         password=password,
         ssh_key_filepath=ssh_key_filepath,
         remote_path=remote_path,
+        port=port,
     )
 
     try:
@@ -88,6 +94,7 @@ def run(argv: List[str] | None = None):
     parser.add_argument("--password", default="", help="SSH 密码，可为空")
     parser.add_argument("--ssh-key-filepath", default="", help="SSH 私钥路径，可为空")
     parser.add_argument("--remote-path", default="/tmp", help="远程上传目录")
+    parser.add_argument("--port", type=int, default=22, help="SSH 端口，默认 22")
     parser.add_argument("target", nargs="?", help="上传目录，或执行命令")
 
     parsed = parser.parse_args(args)
@@ -115,6 +122,7 @@ def run(argv: List[str] | None = None):
             password=parsed.password,
             ssh_key_filepath=parsed.ssh_key_filepath,
             remote_path=parsed.remote_path,
+            port=parsed.port,
         )
         return
 
@@ -125,4 +133,5 @@ def run(argv: List[str] | None = None):
         password=parsed.password,
         ssh_key_filepath=parsed.ssh_key_filepath,
         remote_path=parsed.remote_path,
+        port=parsed.port,
     )
