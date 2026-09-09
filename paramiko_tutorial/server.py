@@ -1,16 +1,16 @@
-"""Client to handle connections and actions executed against a remote host."""
-from os import system
+"""用于处理远程主机连接和操作的客户端。"""
+import os
 from typing import List
 
-from paramiko import AutoAddPolicy, RSAKey, SSHClient
-from paramiko.auth_handler import AuthenticationException, SSHException
+from paramiko import AutoAddPolicy, SSHClient
+from paramiko.auth_handler import AuthenticationException
 from scp import SCPClient, SCPException
 
-from log import LOGGER
+from .log import LOGGER
 
 
 class RemoteClient:
-    """Client to interact with a remote host via SSH & SCP."""
+    """通过 SSH 和 SCP 与远程主机交互的客户端。"""
 
     def __init__(
         self,
@@ -25,101 +25,141 @@ class RemoteClient:
         self.password = password
         self.ssh_key_filepath = ssh_key_filepath
         self.remote_path = remote_path
-        self.client = None
-        self._upload_ssh_key()
+        self.client: SSHClient | None = None
+        self.scp_client: SCPClient | None = None
 
     @property
-    def connection(self):
-        """Open SSH connection to remote host."""
+    def connection(self) -> SSHClient:
+        """打开到远程主机的 SSH 连接。"""
+        if self.client is not None:
+            return self.client
         try:
-            client = SSHClient()
-            client.load_system_host_keys()
-            client.set_missing_host_key_policy(AutoAddPolicy())
-            client.connect(
+            self.client = SSHClient()
+            self.client.load_system_host_keys()
+            self.client.set_missing_host_key_policy(AutoAddPolicy())
+
+            connect_kwargs = {
+                "username": self.user,
+                "timeout": 10,
+            }
+            if self.password:
+                connect_kwargs["password"] = self.password
+            if self.ssh_key_filepath:
+                connect_kwargs["key_filename"] = self.ssh_key_filepath
+
+            self.client.connect(
                 self.host,
-                username=self.user,
-                password=self.password,
-                key_filename=self.ssh_key_filepath,
-                timeout=5000,
+                **connect_kwargs,
             )
-            return client
+            return self.client
         except AuthenticationException as e:
             LOGGER.error(
-                f"AuthenticationException occurred; did you remember to generate an SSH key? {e}"
+                f"认证异常：你是否忘记生成 SSH 密钥？{e}"
             )
+            raise
         except Exception as e:
-            LOGGER.error(f"Unexpected error occurred while connecting to host: {e}")
+            LOGGER.error(f"连接远程主机时发生未知错误：{e}")
+            raise
 
     @property
     def scp(self) -> SCPClient:
+        if self.scp_client is not None:
+            return self.scp_client
         conn = self.connection
-        return SCPClient(conn.get_transport())
+        self.scp_client = SCPClient(
+            conn.get_transport()
+        )
+        return self.scp_client
 
-    def _get_ssh_key(self):
-        """Fetch locally stored SSH key."""
-        try:
-            self.ssh_key = RSAKey.from_private_key_file(self.ssh_key_filepath)
-            LOGGER.info(f"Found SSH key at self {self.ssh_key_filepath}")
-            return self.ssh_key
-        except SSHException as e:
-            LOGGER.error(f"SSHException while getting SSH key: {e}")
-        except Exception as e:
-            LOGGER.error(f"Unexpected error while getting SSH key: {e}")
+    def close(self) -> None:
+        """关闭 SSH 和 SCP 连接。"""
 
-    def _upload_ssh_key(self):
-        try:
-            system(
-                f"ssh-copy-id -i {self.ssh_key_filepath}.pub {self.user}@{self.host}>/dev/null 2>&1"
-            )
-            LOGGER.info(f"{self.ssh_key_filepath} uploaded to {self.host}")
-        except FileNotFoundError as e:
-            LOGGER.error(f"FileNotFoundError while uploading SSH key: {e}")
-        except Exception as e:
-            LOGGER.error(f"Unexpected error while uploading SSH key: {e}")
+        if self.scp_client is not None:
+            self.scp_client.close()
+            self.scp_client = None
 
-    def disconnect(self):
-        """Close SSH & SCP connection."""
-        if self.connection:
+        if self.client is not None:
             self.client.close()
-        if self.scp:
-            self.scp.close()
+            self.client = None
 
-    def bulk_upload(self, filepaths: List[str]):
+    def bulk_upload(self, filepaths: str | List[str], recursive: bool | None = None) -> None:
         """
-        Upload multiple files to a remote directory.
+        上传一个文件、一个目录，或多个文件列表到远程目录。
 
-        :param List[str] filepaths: List of local files to be uploaded.
+        :param str | List[str] filepaths: 单个文件/目录路径，或需要上传的文件列表。
+        :param bool | None recursive: 是否递归上传；如果未显式传入，则由路径类型自动判断。
         """
         try:
+            if isinstance(filepaths, (str, os.PathLike)):
+                local_path = str(filepaths)
+                recursive_flag = os.path.isdir(local_path) if recursive is None else recursive
+                self.scp.put(local_path, remote_path=self.remote_path, recursive=recursive_flag)
+                label = "目录" if recursive_flag else "文件"
+                LOGGER.info(
+                    f"已完成上传 1 个{label}到 {self.remote_path}（主机：{self.host}）"
+                )
+                return
+
             self.scp.put(filepaths, remote_path=self.remote_path, recursive=True)
             LOGGER.info(
-                f"Finished uploading {len(filepaths)} files to {self.remote_path} on {self.host}"
+                f"已完成上传 {len(filepaths)} 个文件到 {self.remote_path}（主机：{self.host}）"
             )
         except SCPException as e:
-            LOGGER.error(f"SCPException during bulk upload: {e}")
+            LOGGER.error(f"批量上传过程中发生 SCPException：{e}")
+            raise
         except Exception as e:
-            LOGGER.error(f"Unexpected exception during bulk upload: {e}")
+            LOGGER.error(f"批量上传过程中发生未知异常：{e}")
+            raise
 
-    def download_file(self, filepath: str):
+    def download_file(self, filepath: str) -> None:
         """
-        Download file from remote host.
+        从远程主机下载文件。
 
-        :param str filepath: Path to file hosted on remote server to fetch.
+        :param str filepath: 要下载的远程文件路径。
         """
-        self.scp.get(filepath)
+        try:
+            self.scp.get(filepath)
+            LOGGER.info(
+                f"已从 {self.host} 下载 {filepath}"
+            )
+        except SCPException as e:
+            LOGGER.error(f"下载文件过程中发生 SCPException：{e}")
+            raise
+        except Exception as e:
+            LOGGER.error(f"下载文件过程中发生未知异常：{e}")
+            raise
 
-    def execute_commands(self, commands: List[str]):
+    def execute_commands(self, commands: List[str]) -> None:
         """
-        Execute multiple commands in succession.
+        依次执行多条命令。
 
-        :param List[str] commands: List of unix commands as strings.
+        :param List[str] commands: 以字符串形式表示的 Unix 命令列表。
         """
+        conn = self.connection
+
         for cmd in commands:
-            stdin, stdout, stderr = self.connection.exec_command(cmd)
-            stdout.channel.recv_exit_status()
-            response = stdout.readlines()
-            for line in response:
+            _, stdout, stderr = conn.exec_command(cmd)
+            exit_status = stdout.channel.recv_exit_status()
+            output = stdout.read().decode()
+            error = stderr.read().decode()
+
+            if output:
                 LOGGER.info(
-                    f"INPUT: {cmd}\n \
-                    OUTPUT: {line}"
+                    f"输入: {cmd}\n"
+                    f"输出: {output}"
+                )
+
+            if error:
+                LOGGER.error(
+                    f"输入: {cmd}\n"
+                    f"错误: {error}"
+                )
+
+            if exit_status != 0:
+                LOGGER.error(
+                    f"命令执行失败: {cmd}\n"
+                    f"退出状态: {exit_status}"
+                )
+                raise RuntimeError(
+                    f"远程命令失败: {cmd}（退出状态: {exit_status}）"
                 )
