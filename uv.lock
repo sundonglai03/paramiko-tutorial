@@ -1682,13 +1682,14 @@ wheels = [
 ]
 
 [[package]]
-name = "ssh-tool"
-version = "0.1.0"
-source = { virtual = "." }
+name = "ssh-mcp"
+version = "0.4.2"
+source = { editable = "." }
 dependencies = [
     { name = "loguru" },
     { name = "mcp" },
     { name = "paramiko" },
+    { name = "pydantic" },
     { name = "scp" },
 ]
 
@@ -1705,10 +1706,11 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "loguru" },
-    { name = "mcp", specifier = ">=2.2.0" },
-    { name = "paramiko" },
-    { name = "scp" },
+    { name = "loguru", specifier = ">=0.7" },
+    { name = "mcp", specifier = ">=2.2.0,<3" },
+    { name = "paramiko", specifier = ">=3.4" },
+    { name = "pydantic", specifier = ">=2.7" },
+    { name = "scp", specifier = ">=0.14" },
 ]
 
 [package.metadata.requires-dev]

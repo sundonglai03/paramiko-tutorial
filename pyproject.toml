@@ -1,16 +1,27 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
-name = "ssh-tool"
-version = "0.1.0"
-description = "SSH remote automation tooling with Python client support."
+name = "ssh-mcp"
+version = "0.4.2"
+description = "SSH / SCP remote automation exposed as an MCP server and a plain Python API."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["ssh", "scp", "mcp", "automation", "paramiko"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
 
 dependencies = [
-    "paramiko",
-    "scp",
-    "loguru",
-    "mcp>=2.2.0",
+    "paramiko>=3.4",
+    "scp>=0.14",
+    "loguru>=0.7",
+    "mcp>=2.2.0,<3",
+    "pydantic>=2.7",
 ]
 
 [dependency-groups]
@@ -24,10 +35,23 @@ dev = [
     "pylint",
 ]
 
+[project.scripts]
+ssh-mcp = "ssh_mcp.__main__:main"
+ssh-mcp-server = "ssh_mcp.mcp_server:main"
+
 [project.urls]
-Homepage = "https://github.com/sundonglai03/ssh-tool"
-Repository = "https://github.com/sundonglai03/ssh-tool"
-Issues = "https://github.com/sundonglai03/ssh-tool/issues"
+Homepage = "https://github.com/sundonglai03/ssh-mcp"
+Repository = "https://github.com/sundonglai03/ssh-mcp"
+Issues = "https://github.com/sundonglai03/ssh-mcp/issues"
+
+[tool.uv]
+package = true
+
+[tool.setuptools.packages.find]
+include = ["ssh_mcp*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [tool.pylint."MESSAGES CONTROL"]
 disable = "C0103,C0301,W0703,W0621"

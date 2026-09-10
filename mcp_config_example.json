@@ -1,0 +1,40 @@
+{
+  "_comment": [
+    "ssh-mcp MCP server config example.",
+    "Copy the 'ssh-mcp' block below into your MCP client's config file.",
+    "The 'command' path below is already this project's real venv interpreter;",
+    "update it only if the project moves.",
+    "",
+    "Launch rules - these matter for every stdio MCP client:",
+    "1) Do NOT add a 'cwd' field. Some clients drop it when spawning the stdio",
+    "   server, so a launch string that resolves the project via the working",
+    "   directory fails with 'ModuleNotFoundError' -> 'MCP error -32000:",
+    "   Connection closed'. Name an ABSOLUTE interpreter path instead.",
+    "2) Do NOT launch through 'uv run'. It re-checks/syncs the project",
+    "   environment on every startup: pointless overhead and one more failure",
+    "   point on a long-lived stdio path. 'uv' is only for building the venv",
+    "   once, via 'uv sync'.",
+    "",
+    "Connection details are NOT configured here. Each tool call either carries",
+    "its own 'host' + 'user' (+ optional password / ssh_key_filepath / port),",
+    "or names a machine this tool already reached successfully ('name': \"223\").",
+    "A successful connection is cached in ~/.ssh-mcp/credentials.json (0600), so",
+    "later calls need no credentials; ssh_list_hosts shows the cache and",
+    "ssh_forget_host drops an entry. No environment variable influences the",
+    "connection. Two are read for unrelated purposes: SSH_LOG_LEVEL (log level)",
+    "and SSH_CREDENTIALS_FILE (cache location)."
+  ],
+  "mcpServers": {
+    "ssh-mcp": {
+      "command": "/Users/sundonglai/ai/vscode/study/PYTHON/ssh-mcp/.venv/bin/python",
+      "args": [
+        "-m",
+        "ssh_mcp.mcp_server"
+      ],
+      "env": {
+        "SSH_LOG_LEVEL": "INFO"
+      },
+      "disabled": false
+    }
+  }
+}

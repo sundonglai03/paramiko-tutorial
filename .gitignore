@@ -22,5 +22,9 @@ htmlcov/
 # Type checking
 .mypy_cache/
 
+# Editors
+.idea/
+.vscode/
+
 # macOS
 .DS_Store
