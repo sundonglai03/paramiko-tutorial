@@ -78,7 +78,7 @@ class RemoteClient:
         remote_path: str,
         port: int = 22,
         connect_timeout: float = DEFAULT_CONNECT_TIMEOUT,
-        auto_add_host_keys: bool = False,
+        auto_add_host_keys: bool | None = None,
     ):
         self.host = host
         self.user = user
@@ -87,6 +87,9 @@ class RemoteClient:
         self.remote_path = remote_path
         self.port = port
         self.connect_timeout = connect_timeout
+        if auto_add_host_keys is None:
+            strict = os.getenv("SSH_STRICT_HOST_KEYS", "").strip().lower()
+            auto_add_host_keys = strict not in {"1", "true", "yes", "on"}
         self.auto_add_host_keys = auto_add_host_keys
         self.client: SSHClient | None = None
         self.scp_client: SCPClient | None = None

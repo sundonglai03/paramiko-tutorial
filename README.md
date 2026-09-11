@@ -54,8 +54,8 @@ docker compose down
 ```
 
 工具参数使用容器路径，例如 `/root/.ssh/id_ed25519` 和 `/work/app.tar.gz`。
-项目默认严格校验 SSH 主机密钥，因此该挂载目录还应包含已核对过的
-`known_hosts`；只使用密码认证时也需要挂载它。
+如果设置了 `SSH_STRICT_HOST_KEYS=true`，该挂载目录还应包含已核对过的
+`known_hosts`；默认内网模式不需要手动维护它。
 
 ## 工具
 
@@ -93,7 +93,8 @@ ssh_execute_command(command="uptime", name="prod")
 
 ## 安全注意事项
 
-- 默认严格校验 SSH 主机密钥；首次连接前请把目标加入 `~/.ssh/known_hosts`（例如使用 `ssh-keyscan` 后人工核对指纹）。
+- 默认自动接受内网中的新 SSH 主机密钥，首次连接不需要手动配置服务器。需要严格校验时设置
+  `SSH_STRICT_HOST_KEYS=true`，并把目标加入 `~/.ssh/known_hosts`（例如使用 `ssh-keyscan` 后人工核对指纹）。
 - 远程命令工具本身具有完整 shell 权限，不是命令白名单沙箱。
 - HTTP 模式默认只绑定回环地址；远程部署必须增加认证和 HTTPS。
 - 不要把私钥复制进 Docker 镜像，使用只读 volume 挂载。
