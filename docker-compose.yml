@@ -1,6 +1,8 @@
 services:
   ssh-mcp:
     build: .
+    image: sundonglai/ssh-mcp:latest
+    container_name: ssh-mcp
     restart: unless-stopped
     ports:
       - "127.0.0.1:8001:8001"

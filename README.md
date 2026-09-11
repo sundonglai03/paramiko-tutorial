@@ -43,7 +43,9 @@ docker compose logs -f ssh-mcp
 docker compose down
 ```
 
-默认监听 `127.0.0.1:8001`。凭据保存在 Docker volume `ssh-mcp-data`，本地文件通过 `./work:/work` 映射。
+镜像名为 `sundonglai/ssh-mcp:latest`，容器名为 `ssh-mcp`。默认监听
+`127.0.0.1:8001`。凭据保存在 Docker volume `ssh-mcp-data`，本地文件通过
+`./work:/work` 映射。
 
 如果使用宿主机私钥，在 Compose 中增加：
 
