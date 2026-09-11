@@ -148,33 +148,9 @@ def test_values_are_stripped():
     assert settings.user == "root"
 
 
-def test_name_resolves_from_the_credential_cache():
-    remember("10.0.0.5", "root", password="pw", aliases=["223"])
+def test_connection_requires_explicit_host_and_user():
+    with pytest.raises(ValueError, match="host"):
+        resolve_connection(user="root")
 
-    settings = resolve_connection(name="223")
-
-    assert settings.host == "10.0.0.5"
-    assert settings.user == "root"
-    assert settings.password == "pw"
-    assert settings.source == "cache"
-
-
-def test_explicit_arguments_override_cached_credentials():
-    remember("10.0.0.5", "root", password="cached", aliases=["223"])
-
-    settings = resolve_connection(name="223", user="admin", password="typed")
-
-    assert settings.host == "10.0.0.5"
-    assert settings.user == "admin"
-    assert settings.password == "typed"
-    # host still came from the cache; only the explicitly passed fields differ.
-    assert settings.source == "cache"
-
-
-def test_name_pointing_at_nothing_raises_with_the_cache_contents():
-    from ssh_mcp.credentials import NameNotFound
-
-    remember("10.0.0.5", "root", password="pw", aliases=["223"])
-
-    with pytest.raises(NameNotFound, match="dev36"):
-        resolve_connection(name="dev36")
+    with pytest.raises(ValueError, match="user"):
+        resolve_connection(host="10.0.0.5")

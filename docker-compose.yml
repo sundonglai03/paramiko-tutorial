@@ -7,7 +7,6 @@ services:
     ports:
       - "127.0.0.1:8001:8001"
     volumes:
-      - ssh-mcp-data:/data
       - ./work:/work
       # Optional for key authentication:
       # - ${HOME}/.ssh:/root/.ssh:ro
@@ -17,6 +16,3 @@ services:
       SSH_STRICT_HOST_KEYS: ${SSH_STRICT_HOST_KEYS:-}
       # Internal-network default accepts new host keys.
     # Put an authenticated TLS reverse proxy in front before remote access.
-
-volumes:
-  ssh-mcp-data:

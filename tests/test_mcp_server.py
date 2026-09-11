@@ -464,8 +464,6 @@ def test_every_tool_parameter_is_documented_in_the_schema():
         "ssh_execute_command",
         "ssh_upload_directory",
         "ssh_download_file",
-        "ssh_list_hosts",
-        "ssh_forget_host",
     }
 
     undocumented = [
@@ -533,52 +531,7 @@ def test_a_real_errno_is_still_shown():
     assert "[Errno 2]" in module._oserror_text(OSError(2, "No such file"))
 
 
-def test_credential_error_is_not_wrapped_in_a_second_pair_of_brackets():
-    """A credential message brings its own brackets; a wrapper nests them."""
+def test_error_text_has_no_credential_cache_reference():
     module = importlib.import_module("ssh_mcp.mcp_server")
-    from ssh_mcp.credentials import AmbiguousName
-
-    message = module._describe_error(
-        AmbiguousName("'192.168.1' 匹配到多台机器：10.0.0.1:22（one，root）。")
-    )
-
-    assert message.count("（") == 1
-    assert message.count("）") == 1
-    assert "ssh_list_hosts" in message
-
-
-def test_forget_host_refuses_an_ambiguous_name_and_keeps_every_entry(
-    monkeypatch, tmp_path
-):
-    """Regression: an ambiguous name used to delete every match, silently."""
-    module = importlib.import_module("ssh_mcp.mcp_server")
-    monkeypatch.setenv("SSH_CREDENTIALS_FILE", str(tmp_path / "credentials.json"))
-    from ssh_mcp import credentials
-
-    credentials.remember("192.168.11.231", "root", password="a", aliases=["231"])
-    credentials.remember("192.168.10.33", "root", password="b", aliases=["33"])
-
-    try:
-        module.ssh_forget_host("192.168.1")
-        raise AssertionError("Expected ToolError for an ambiguous name")
-    except ToolError as exc:
-        assert "无法确定删哪一台" in str(exc)
-        assert "192.168.11.231" in str(exc)
-        assert "192.168.10.33" in str(exc)
-
-    assert len(credentials.load()) == 2
-
-
-def test_list_hosts_renders_a_machine_without_an_alias_cleanly(monkeypatch, tmp_path):
-    """No ``[-]`` placeholder: it read as a broken bracket, not "no alias"."""
-    module = importlib.import_module("ssh_mcp.mcp_server")
-    monkeypatch.setenv("SSH_CREDENTIALS_FILE", str(tmp_path / "credentials.json"))
-    from ssh_mcp import credentials
-
-    credentials.remember("192.168.11.231", "root", password="hunter2")
-
-    output = module.ssh_list_hosts()
-
-    assert "[-]" not in output
-    assert "192.168.11.231" in output
-    assert "hunter2" not in output
+    message = module._describe_error(ValueError("host 未提供：请传入 host 参数。"))
+    assert "缓存" not in message

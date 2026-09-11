@@ -6,8 +6,7 @@ COPY pyproject.toml README.md LICENSE ./
 COPY ssh_mcp ./ssh_mcp
 RUN pip install --no-cache-dir .
 
-RUN mkdir -p /data /work && chmod 700 /data
-ENV SSH_CREDENTIALS_FILE=/data/credentials.json
+RUN mkdir -p /work
 
 EXPOSE 8001
 

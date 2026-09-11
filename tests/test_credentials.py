@@ -202,19 +202,14 @@ def test_entries_missing_host_are_rejected(_isolated_cache):
         load()
 
 
-def test_successful_call_is_cached(monkeypatch):
+def test_successful_call_does_not_write_credentials(monkeypatch, _isolated_cache):
     def fake_execute(self, commands, timeout=None):
         return "Command: uptime\nExit code: 0\nStdout:\nup\nStderr:\n<empty>"
 
     monkeypatch.setattr(client_module.RemoteClient, "execute_commands", fake_execute)
 
-    client_module.execute_remote_commands(
-        ["uptime"], host="10.0.0.5", user="root", password="pw", alias="五号机"
-    )
-
-    cached = find("五号机")
-    assert cached.host == "10.0.0.5"
-    assert cached.password == "pw"
+    client_module.execute_remote_commands(["uptime"], host="10.0.0.5", user="root", password="pw")
+    assert not (_isolated_cache / "credentials.json").exists()
 
 
 def test_failed_authentication_is_never_cached(monkeypatch, _isolated_cache):
@@ -224,78 +219,6 @@ def test_failed_authentication_is_never_cached(monkeypatch, _isolated_cache):
     monkeypatch.setattr(client_module.RemoteClient, "execute_commands", boom)
 
     with pytest.raises(AuthenticationException):
-        client_module.execute_remote_commands(
-            ["uptime"], host="10.0.0.5", user="root", password="wrong", alias="五号机"
-        )
+        client_module.execute_remote_commands(["uptime"], host="10.0.0.5", user="root", password="wrong")
 
     assert not (_isolated_cache / "credentials.json").exists()
-
-
-def test_call_by_name_reuses_cached_credentials(monkeypatch):
-    remember("10.0.0.5", "root", password="pw", aliases=["223"])
-    seen = {}
-
-    def fake_execute(self, commands, timeout=None):
-        seen["host"] = self.host
-        seen["password"] = self.password
-        return "Command: uptime\nExit code: 0\nStdout:\nup\nStderr:\n<empty>"
-
-    monkeypatch.setattr(client_module.RemoteClient, "execute_commands", fake_execute)
-
-    client_module.execute_remote_commands(["uptime"], name="223")
-
-    assert seen["host"] == "10.0.0.5"
-    assert seen["password"] == "pw"
-
-
-def test_explicit_arguments_override_cached_credentials(monkeypatch):
-    remember("10.0.0.5", "root", password="cached-pw", aliases=["223"])
-    seen = {}
-
-    def fake_execute(self, commands, timeout=None):
-        seen["user"] = self.user
-        seen["password"] = self.password
-        return "ok"
-
-    monkeypatch.setattr(client_module.RemoteClient, "execute_commands", fake_execute)
-
-    client_module.execute_remote_commands(
-        ["uptime"], name="223", user="admin", password="typed-pw"
-    )
-
-    assert seen["user"] == "admin"
-    assert seen["password"] == "typed-pw"
-
-
-def test_calling_by_name_does_not_pin_that_name_as_an_alias(monkeypatch):
-    """A name matched by host fragment must not be cached as an alias.
-
-    Regression: every successful call stored the ``name`` it was addressed by,
-    so a throwaway fragment such as "192.168.11" became a permanent alias and
-    cluttered what ``ssh_list_hosts`` (and the user) sees.
-    """
-    remember("192.168.11.231", "root", password="pw", aliases=["231"])
-
-    def fake_execute(self, commands, timeout=None):
-        return "ok"
-
-    monkeypatch.setattr(client_module.RemoteClient, "execute_commands", fake_execute)
-
-    client_module.execute_remote_commands(["uptime"], name="192.168.11")
-
-    assert find("192.168.11.231").aliases == ("231",)
-
-
-def test_a_new_explicit_alias_is_still_learned(monkeypatch):
-    """Dropping the implicit alias must not stop real aliases from sticking."""
-    remember("192.168.11.231", "root", password="pw", aliases=["231"])
-
-    def fake_execute(self, commands, timeout=None):
-        return "ok"
-
-    monkeypatch.setattr(client_module.RemoteClient, "execute_commands", fake_execute)
-
-    client_module.execute_remote_commands(["uptime"], name="231", alias="测试机")
-
-    assert find("测试机").host == "192.168.11.231"
-    assert find("192.168.11.231").aliases == ("231", "测试机")

@@ -15,14 +15,11 @@
     "   point on a long-lived stdio path. 'uv' is only for building the venv",
     "   once, via 'uv sync'.",
     "",
-    "Connection details are NOT configured here. Each tool call either carries",
-    "its own 'host' + 'user' (+ optional password / ssh_key_filepath / port),",
-    "or names a machine this tool already reached successfully ('name': \"223\").",
-    "A successful connection is cached in ~/.ssh-mcp/credentials.json (0600), so",
-    "later calls need no credentials; ssh_list_hosts shows the cache and",
-    "ssh_forget_host drops an entry. No environment variable influences the",
-    "connection. Two are read for unrelated purposes: SSH_LOG_LEVEL (log level)",
-    "and SSH_CREDENTIALS_FILE (cache location)."
+    "Connection details are NOT configured here. Every tool call carries its",
+    "own 'host' + 'user' and authentication material (password or",
+    "ssh_key_filepath). The MCP server is stateless: it does not read or write",
+    "credential files, aliases, or connection profiles. Only SSH_LOG_LEVEL is",
+    "read for logging."
   ],
   "mcpServers": {
     "ssh-mcp": {

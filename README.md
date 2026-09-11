@@ -1,6 +1,6 @@
 # ssh-mcp
 
-基于 Paramiko 和 SCP 的 SSH MCP Server：执行远程命令、上传文件、下载文件。支持密码、SSH 私钥、命名主机、stdio 和 Streamable HTTP。
+基于 Paramiko 和 SCP 的无状态 SSH MCP Server：执行远程命令、上传文件、下载文件。支持密码、SSH 私钥、stdio 和 Streamable HTTP。
 
 ## 快速开始
 
@@ -44,8 +44,7 @@ docker compose down
 ```
 
 镜像名为 `sundonglai/ssh-mcp:latest`，容器名为 `ssh-mcp`。默认监听
-`127.0.0.1:8001`。凭据保存在 Docker volume `ssh-mcp-data`，本地文件通过
-`./work:/work` 映射。
+`127.0.0.1:8001`。服务不保存凭据；本地文件通过 `./work:/work` 映射。
 
 如果使用宿主机私钥，在 Compose 中增加：
 
@@ -64,23 +63,21 @@ docker compose down
 | `ssh_execute_command` | 执行一条远程命令 |
 | `ssh_upload_directory` | 上传文件或目录 |
 | `ssh_download_file` | 下载单个文件 |
-| `ssh_list_hosts` | 列出成功连接过的主机，不显示密码 |
-| `ssh_forget_host` | 删除一台主机的缓存凭据 |
 
-连接目标可以二选一：
+每次调用都直接提供连接信息，服务不会记住它们：
 
 ```text
 ssh_execute_command(command="uptime", host="10.0.0.5", user="root", password="...")
-ssh_execute_command(command="uptime", name="prod")
+ssh_execute_command(command="uptime", host="10.0.0.5", user="root", password="...")
 ```
 
-首次成功连接后，可用 `alias="prod"` 保存一个名字。名称匹配顺序为：精确别名、完整 host、host 片段；命中多台时会拒绝猜测。
+每个请求独立建立连接；不会保存密码、主机别名或连接配置。
 
 ## 连接参数
 
 | 参数 | 默认值 | 说明 |
 | --- | --- | --- |
-| `host` / `user` | 必填（或使用 `name`） | SSH 目标 |
+| `host` / `user` | 必填 | SSH 目标 |
 | `password` | 无 | 密码认证 |
 | `ssh_key_filepath` | 无 | 私钥路径 |
 | `port` | `22` | SSH 端口 |
@@ -88,8 +85,6 @@ ssh_execute_command(command="uptime", name="prod")
 | `connect_timeout` | `10` | TCP + SSH 握手超时 |
 | `remote_path` | `/tmp` | 上传目标目录 |
 | `fail_on_error` | `false` | 非零退出码是否让工具失败 |
-
-凭据缓存默认位于 `~/.ssh-mcp/credentials.json`，可用 `SSH_CREDENTIALS_FILE` 修改。目录权限为 `0700`，文件权限为 `0600`；密码以明文保存，请使用专用运行账号并保护该文件。
 
 ## 安全注意事项
 
@@ -105,8 +100,8 @@ ssh_execute_command(command="uptime", name="prod")
 ssh_mcp/
 ├── mcp_server.py  # MCP 工具和 transport 入口
 ├── client.py      # SSH/SCP 业务客户端
-├── config.py      # 参数解析和连接合并
-├── credentials.py # 凭据缓存
+├── config.py      # 参数校验
+├── credentials.py # 历史本地模块；MCP 工具不使用
 └── server.py      # Paramiko 底层连接
 ```
 
@@ -118,7 +113,7 @@ docker compose config
 git diff --check
 ```
 
-不要提交 `.venv/`、`credentials.json`、私钥、`work/` 下的业务文件或 Docker 数据。
+不要提交 `.venv/`、私钥、`work/` 下的业务文件或 Docker 数据。
 
 ## License
 

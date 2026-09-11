@@ -13,15 +13,9 @@ Design rules:
   ``UnexpectedToolError``, whose message is only ``Error executing tool <name>``
   and which withholds the original text from the client. See
   :func:`_describe_error`.
-* **A call is either fully explicit or names a known machine.** Pass
-  ``host`` + ``user`` (+ ``password`` / ``ssh_key_filepath``) to reach any box
-  with no state at all, or pass ``name`` for a machine this tool already
-  connected to successfully -- the user's own way of referring to it, such as
-  ``"223"``. Explicit arguments always win over the cache.
-* **Success is what earns a cache entry.** Nothing is stored until a call
-  actually connects, so a wrong password is never remembered, and an ambiguous
-  name is refused with the candidate list rather than guessed. See
-  :mod:`ssh_mcp.credentials`.
+* **Every call is explicit and stateless.** Pass ``host`` + ``user`` and the
+  authentication material needed for that call. No password, host alias or
+  connection profile is read or written by the MCP server.
 * **Two independent timeouts.** ``timeout`` bounds a single command and reports
   exit code 124 with the output produced so far, so an overrunning command never
   raises. ``connect_timeout`` bounds the socket plus SSH handshake and does fail
@@ -59,7 +53,6 @@ from .config import (
     DEFAULT_REMOTE_PATH,
     DEFAULT_TIMEOUT,
 )
-from .credentials import CredentialError, describe, forget
 from .http_auth import BearerTokenMiddleware
 
 server = MCPServer("ssh-mcp", version=__version__)
@@ -83,18 +76,15 @@ def _oserror_text(exc: OSError) -> str:
     return str(exc)
 
 
-CONNECTION_ARGS = (
-    "连接目标二选一：传 host + user（可选 password / ssh_key_filepath / port），"
-    "或传 name 指定一台此前成功连接过的机器（如 \"223\"）。显式参数优先于 name。"
-)
+CONNECTION_ARGS = "连接信息由本次调用提供：传 host + user，以及 password 或 ssh_key_filepath。"
 
 HostArg = Annotated[
     str | None,
-    Field(description="远程主机地址。与 user 一起给出即直接连接，可不传 name。"),
+    Field(description="远程主机地址。每次调用都必须提供。"),
 ]
 UserArg = Annotated[
     str | None,
-    Field(description="SSH 用户名。与 host 一起给出，或用 name 指向已缓存的机器。"),
+    Field(description="SSH 用户名。每次调用都必须提供。"),
 ]
 PasswordArg = Annotated[
     str | None,
@@ -125,24 +115,6 @@ ConnectTimeoutArg = Annotated[
         description=(
             f"建立连接（TCP + SSH 握手）的超时秒数，默认 {_seconds(DEFAULT_CONNECT_TIMEOUT)}。"
             "主机连不上 / 网络慢时调这个；调 timeout 对连接阶段无效。"
-        )
-    ),
-]
-NameArg = Annotated[
-    str | None,
-    Field(
-        description=(
-            "已成功连接过的机器的别名、host 或 host 片段，如 \"223\"。"
-            "命中多台会报错并列出候选，不会替你猜。"
-        )
-    ),
-]
-AliasArg = Annotated[
-    str | None,
-    Field(
-        description=(
-            "给这次连接的机器记一个称呼（如 \"223\"），连接成功后写入凭据缓存，"
-            "下次即可用 name 调用。只记录这里显式给的值。"
         )
     ),
 ]
@@ -194,11 +166,6 @@ def _describe_error(exc: BaseException) -> str:
             "常见原因：远端文件不存在、路径无权限，或目标是目录。"
         )
     if isinstance(exc, ValueError):
-        if isinstance(exc, CredentialError):
-            # No brackets around {exc}: a credential message carries its own
-            # parenthesised detail (the candidate list), so wrapping it again
-            # nests brackets and turns one line into a stack.
-            return f"凭据缓存问题：{exc}\n可用 ssh_list_hosts 查看已缓存的机器。"
         return f"参数或配置错误（{exc}）。"
     return f"{type(exc).__name__}: {exc}"
 
@@ -206,13 +173,9 @@ def _describe_error(exc: BaseException) -> str:
 def _raise_tool_error(exc: BaseException, action: str) -> NoReturn:
     """Re-raise a failure as ``ToolError`` so its message reaches the client.
 
-    The ``action`` prefix is skipped for credential problems: those messages
-    already start with "凭据缓存问题", so prefixing them yields the stutter
-    "删除凭据缓存失败：凭据缓存问题：…".
+    The action prefix keeps failures readable to MCP clients.
     """
     detail = _describe_error(exc)
-    if isinstance(exc, CredentialError):
-        raise ToolError(detail) from exc
     raise ToolError(f"{action}失败：{detail}") from exc
 
 
@@ -235,8 +198,6 @@ def ssh_execute_command(
     port: PortArg = None,
     timeout: TimeoutArg = None,
     connect_timeout: ConnectTimeoutArg = None,
-    name: NameArg = None,
-    alias: AliasArg = None,
     fail_on_error: Annotated[
         bool,
         Field(
@@ -264,8 +225,6 @@ def ssh_execute_command(
             port=port,
             timeout=timeout,
             connect_timeout=connect_timeout,
-            name=name,
-            alias=alias,
         )
     except Exception as exc:
         _raise_tool_error(exc, "执行远程命令")
@@ -307,8 +266,6 @@ def ssh_upload_directory(
     ] = DEFAULT_REMOTE_PATH,
     port: PortArg = None,
     connect_timeout: ConnectTimeoutArg = None,
-    name: NameArg = None,
-    alias: AliasArg = None,
 ) -> str:
     """Upload a local directory via SCP over SSH.
 
@@ -333,8 +290,6 @@ def ssh_upload_directory(
             remote_path=remote_path,
             port=port,
             connect_timeout=connect_timeout,
-            name=name,
-            alias=alias,
         )
     except Exception as exc:
         _raise_tool_error(exc, "上传")
@@ -368,8 +323,6 @@ def ssh_download_file(
     ] = None,
     port: PortArg = None,
     connect_timeout: ConnectTimeoutArg = None,
-    name: NameArg = None,
-    alias: AliasArg = None,
 ) -> str:
     """Download a single file from the remote host via SCP.
 
@@ -392,60 +345,9 @@ def ssh_download_file(
             local_path=local_path,
             port=port,
             connect_timeout=connect_timeout,
-            name=name,
-            alias=alias,
         )
     except Exception as exc:
         _raise_tool_error(exc, "下载")
-
-
-@server.tool(
-    name="ssh_list_hosts",
-    description=(
-        "List machines this tool connected to successfully before, so they can be "
-        "addressed by name instead of host/user/password. Passwords are never returned. "
-        "列出已缓存的机器（可作为 name 使用），不回显密码。"
-    ),
-)
-def ssh_list_hosts() -> str:
-    """Return the credential cache contents without any secret."""
-    try:
-        return describe()
-    except Exception as exc:
-        _raise_tool_error(exc, "读取凭据缓存")
-
-
-@server.tool(
-    name="ssh_forget_host",
-    description=(
-        "Remove a cached machine's credentials so it must be addressed with "
-        "host/user/password again. Use it for boxes that were only visited once. "
-        "Removes one machine per call: a name matching several is refused and "
-        "nothing is deleted. "
-        "删除某台机器的缓存凭据，之后必须重新传 host / user / password。"
-        "一次只删一台；名字命中多台时报错并列出候选，不会一次删掉多台。"
-    ),
-)
-def ssh_forget_host(
-    name: Annotated[
-        str,
-        Field(
-            description=(
-                "要遗忘的机器：别名、host 或 host 片段。一次只删一台 —— "
-                "命中多台时报错并列出候选，任何一台都不会被删。"
-            )
-        ),
-    ],
-) -> str:
-    """Delete the one cached entry a name resolves to; refuse if ambiguous."""
-    try:
-        removed = forget(name)
-    except Exception as exc:
-        _raise_tool_error(exc, "删除凭据缓存")
-
-    if removed is None:
-        return f"凭据缓存里没有匹配 {name!r} 的机器。"
-    return f"已删除并遗忘：{removed.summary()}"
 
 
 def create_mcp_server() -> MCPServer:
@@ -522,8 +424,6 @@ __all__ = [
     "server",
     "ssh_download_file",
     "ssh_execute_command",
-    "ssh_forget_host",
-    "ssh_list_hosts",
     "ssh_upload_directory",
 ]
 
