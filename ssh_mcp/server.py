@@ -78,7 +78,7 @@ class RemoteClient:
         remote_path: str,
         port: int = 22,
         connect_timeout: float = DEFAULT_CONNECT_TIMEOUT,
-        auto_add_host_keys: bool = True,
+        auto_add_host_keys: bool = False,
     ):
         self.host = host
         self.user = user

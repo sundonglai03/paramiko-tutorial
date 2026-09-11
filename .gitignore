@@ -28,3 +28,8 @@ htmlcov/
 
 # macOS
 .DS_Store
+
+# Local runtime data
+credentials.json
+work/
+data/

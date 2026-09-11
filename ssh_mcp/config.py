@@ -129,30 +129,38 @@ def resolve_connection(
     """
     cached: Credential | None = find(name) if _clean(name) else None
 
-    resolved_host = _clean(host) or (cached.host if cached else None)
+    explicit_host = _clean(host)
+    explicit_user = _clean(user)
+    resolved_host = explicit_host or (cached.host if cached else None)
     if not resolved_host:
         raise ValueError(
             "host 未提供：请传入 host 参数（配合 user），"
             "或传 name 指定一台已成功连接过的机器。"
         )
 
-    resolved_user = _clean(user) or (cached.user if cached else None)
+    resolved_user = explicit_user or (cached.user if cached else None)
     if not resolved_user:
         raise ValueError(
             "user 未提供：请传入 user 参数（配合 host），"
             "或传 name 指定一台已成功连接过的机器。"
         )
 
+    cache_matches_target = bool(
+        cached
+        and (not explicit_host or explicit_host.lower() == cached.host.lower())
+        and (not explicit_user or explicit_user == cached.user)
+    )
+
     resolved_password = _clean(password)
-    if resolved_password is None and cached:
+    if resolved_password is None and cache_matches_target:
         resolved_password = cached.password or None
 
     resolved_key = _clean(ssh_key_filepath)
-    if resolved_key is None and cached:
+    if resolved_key is None and cache_matches_target:
         resolved_key = cached.ssh_key_filepath or None
 
     resolved_port = port
-    if resolved_port is None and cached:
+    if resolved_port is None and cache_matches_target:
         resolved_port = cached.port
 
     return ConnectionSettings(

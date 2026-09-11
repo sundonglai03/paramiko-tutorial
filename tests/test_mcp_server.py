@@ -258,14 +258,40 @@ def test_ssh_execute_command_can_fail_on_non_zero_exit(monkeypatch):
     ok = module.ssh_execute_command("ls /nope", "example.com", "root", "pw", timeout=5)
     assert "Exit code: 2" in ok
 
+
+def test_main_supports_streamable_http_transport(monkeypatch):
+    module = importlib.import_module("ssh_mcp.mcp_server")
+
+    calls = {}
+
+    def fake_run(transport=None, **kwargs):
+        calls["transport"] = transport
+        calls["kwargs"] = kwargs
+
+    def fake_execute_remote_commands(
+        *, commands, host, user, password, ssh_key_filepath, port, timeout, connect_timeout=None, name=None, alias=None
+    ):
+        return "Command: ls /nope\nExit code: 2\nStdout:\n<empty>\nStderr:\nno such file"
+
+    monkeypatch.setattr(module.server, "run", fake_run)
+    monkeypatch.setattr(module, "execute_remote_commands", fake_execute_remote_commands)
+
+    module.main(["--transport", "streamable-http", "--host", "0.0.0.0", "--port", "9001", "--path", "/mcp"])
+
+    assert calls["transport"] == "streamable-http"
+    assert calls["kwargs"]["host"] == "0.0.0.0"
+    assert calls["kwargs"]["port"] == 9001
+    assert calls["kwargs"]["streamable_http_path"] == "/mcp"
+
     try:
         module.ssh_execute_command(
             "ls /nope", "example.com", "root", "pw", timeout=5, fail_on_error=True
         )
         raise AssertionError("Expected ToolError for non-zero exit")
     except ToolError as exc:
-        assert "非 0 状态退出" in str(exc)
+        assert "远程命令以非 0 状态退出" in str(exc)
         assert "Exit code: 2" in str(exc)
+        assert "no such file" in str(exc)
 
 
 def test_bulk_upload_missing_source_raises_clear_error(monkeypatch, tmp_path):

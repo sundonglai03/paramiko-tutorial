@@ -35,8 +35,10 @@ Design rules:
 
 from __future__ import annotations
 
+import argparse
+import os
 import socket
-from typing import Annotated, NoReturn
+from typing import Annotated, NoReturn, Sequence
 
 import anyio
 from mcp.server.mcpserver import MCPServer
@@ -58,6 +60,7 @@ from .config import (
     DEFAULT_TIMEOUT,
 )
 from .credentials import CredentialError, describe, forget
+from .http_auth import BearerTokenMiddleware
 
 server = MCPServer("ssh-mcp", version=__version__)
 
@@ -450,9 +453,66 @@ def create_mcp_server() -> MCPServer:
     return server
 
 
-def main() -> None:
-    """Run the SSH tool server over stdio transport for MCP clients."""
-    anyio.run(server.run_stdio_async)
+def main(argv: Sequence[str] | None = None) -> None:
+    """Run the SSH tool server over stdio or Streamable HTTP transport.
+
+    Supported transports:
+    - stdio: default, for local MCP clients over stdin/stdout
+    - streamable-http: for HTTP-based MCP clients such as Streamable HTTP
+    """
+    parser = argparse.ArgumentParser(
+        prog="ssh-mcp-server",
+        description="Run the SSH MCP server via stdio or Streamable HTTP.",
+    )
+    parser.add_argument(
+        "--transport",
+        choices=["stdio", "streamable-http"],
+        default="stdio",
+        help="MCP transport to use; default: stdio",
+    )
+    parser.add_argument("--host", default="127.0.0.1", help="Bind host for HTTP mode")
+    parser.add_argument("--port", type=int, default=8000, help="Bind port for HTTP mode")
+    parser.add_argument(
+        "--path",
+        default="/mcp",
+        help="HTTP path for Streamable HTTP mode (default: /mcp)",
+    )
+    parser.add_argument(
+        "--auth-token",
+        default=os.getenv("SSH_MCP_AUTH_TOKEN"),
+        help="optional Bearer token; can also be set with SSH_MCP_AUTH_TOKEN",
+    )
+    parsed = parser.parse_args(list(argv) if argv is not None else None)
+
+    if parsed.transport == "stdio":
+        anyio.run(server.run_stdio_async)
+        return
+
+    if not parsed.auth_token:
+        server.run(
+            transport="streamable-http",
+            host=parsed.host,
+            port=parsed.port,
+            streamable_http_path=parsed.path,
+        )
+        return
+
+    import uvicorn
+
+    async def serve() -> None:
+        app = server.streamable_http_app(
+            streamable_http_path=parsed.path,
+            host=parsed.host,
+        )
+        config = uvicorn.Config(
+            BearerTokenMiddleware(app, parsed.auth_token),
+            host=parsed.host,
+            port=parsed.port,
+            log_level=server.settings.log_level.lower(),
+        )
+        await uvicorn.Server(config).serve()
+
+    anyio.run(serve)
 
 
 __all__ = [

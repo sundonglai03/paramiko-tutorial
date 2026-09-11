@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, NamedTuple, Sequence
@@ -138,6 +139,40 @@ def _read_entries() -> List[Dict[str, Any]]:
     if not isinstance(entries, list):
         raise CredentialError(f"凭据缓存的 credentials 字段必须是数组：{path}")
     return entries
+
+
+def _write_entries(entries: List[Dict[str, Any]]) -> None:
+    """Atomically persist credentials with restrictive permissions."""
+    path = credentials_path()
+    temporary = None
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        path.parent.chmod(0o700)
+        fd, temporary = tempfile.mkstemp(
+            dir=str(path.parent), prefix=".credentials-", suffix=".tmp"
+        )
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(
+                json.dumps(
+                    {"version": SCHEMA_VERSION, "credentials": entries},
+                    ensure_ascii=False,
+                    indent=2,
+                )
+                + "\n"
+            )
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.chmod(temporary, 0o600)
+        os.replace(temporary, path)
+        temporary = None
+    except OSError as exc:
+        raise CredentialError(f"凭据缓存写入失败：{path}（{exc}）") from exc
+    finally:
+        if temporary:
+            try:
+                os.unlink(temporary)
+            except OSError:
+                pass
 
 
 def load() -> List[Credential]:
@@ -266,7 +301,6 @@ def remember(
 
     incoming = [_clean(a) for a in aliases if _clean(a)]
 
-    path = credentials_path()
     entries = _read_entries()
     existing = [
         entry
@@ -322,21 +356,7 @@ def remember(
         }
     )
 
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        path.parent.chmod(0o700)
-        path.write_text(
-            json.dumps(
-                {"version": SCHEMA_VERSION, "credentials": survivors},
-                ensure_ascii=False,
-                indent=2,
-            )
-            + "\n",
-            encoding="utf-8",
-        )
-        path.chmod(0o600)
-    except OSError as exc:
-        raise CredentialError(f"凭据缓存写入失败：{path}（{exc}）") from exc
+    _write_entries(survivors)
 
     return credential
 
@@ -387,22 +407,7 @@ def forget(name: str) -> Credential | None:
         if credential is not doomed
     ]
 
-    path = credentials_path()
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        path.parent.chmod(0o700)
-        path.write_text(
-            json.dumps(
-                {"version": SCHEMA_VERSION, "credentials": survivors},
-                ensure_ascii=False,
-                indent=2,
-            )
-            + "\n",
-            encoding="utf-8",
-        )
-        path.chmod(0o600)
-    except OSError as exc:
-        raise CredentialError(f"凭据缓存写入失败：{path}（{exc}）") from exc
+    _write_entries(survivors)
 
     return doomed
 
